@@ -17,6 +17,8 @@ double[] appliedMovement = [0, 0];
 // Gets the value of the square root of 2 divided by 2 (this is used to normalise the player movement)
 double diagonalMovement = Math.Sqrt(2) / 2;
 
+const string GitHubRaw = "https://raw.githubusercontent.com/ditpowuh/splashkit-projects/main/collection_game/";
+
 // Gets all the sounds
 SoundEffect collectGemSound = SetSoundEffect("collectGemSound", "Sounds/CollectGem.wav");
 SoundEffect loseSound = SetSoundEffect("loseSound", "Sounds/Lose.wav");
@@ -60,9 +62,6 @@ List<int> gemsCollected = new List<int>();
 int[] order = [0, 1, 2];
 // Shuffles the array 'order' so that it is random
 Random.Shared.Shuffle(order);
-foreach(var item in order) {
-  Console.WriteLine(item.ToString());
-}
 
 // Sets the target framerate (a constant so that is read-only)
 const int targetFramerate = 60;
@@ -76,21 +75,17 @@ bool gameWin = false;
 
 // Functions
 
-// Function that tries to get the bitmap as a local path, but if it fails to (i.e. no bitmap is found at local path), it'll try to download the bitmap from a link
-Bitmap SetBitmap(string name, string localPath = "", string downloadPath = "") {
+// Function that tries to get the bitmap as a local path, but if it fails to (i.e. no bitmap is found at local path), it'll try to download the bitmap from the GitHub version of my project
+Bitmap SetBitmap(string name, string localPath = "") {
   Bitmap? bitmap = SplashKit.LoadBitmap(name, localPath);
-  if (downloadPath != "") {
-    bitmap ??= SplashKit.DownloadBitmap(name, downloadPath, 433);
-  }
+  bitmap ??= SplashKit.DownloadBitmap(name, GitHubRaw + localPath, 433);
   return bitmap;
 }
 
-// Function that tries to get the sound effect as a local path, but if it fails to (i.e. no sound effect is found at local path), it'll try to download the sound effect from a link
-SoundEffect SetSoundEffect(string name, string localPath = "", string downloadPath = "") {
+// Function that tries to get the sound effect as a local path, but if it fails to (i.e. no sound effect is found at local path), it'll try to download the sound effect from the GitHub version of my project
+SoundEffect SetSoundEffect(string name, string localPath = "") {
   SoundEffect? soundEffect = SplashKit.LoadSoundEffect(name, localPath);
-  if (downloadPath != "") {
-    soundEffect ??= SplashKit.DownloadSoundEffect(name, downloadPath, 433);
-  }
+  soundEffect ??= SplashKit.DownloadSoundEffect(name, GitHubRaw + localPath, 433);
   return soundEffect;
 }
 
