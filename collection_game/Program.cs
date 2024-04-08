@@ -10,13 +10,15 @@ int[] screenSize = [1280, 720];
 
 // Sets the speed of the player
 double playerSpeed = 5;
-//
+// Sets the position of the player as an array of doubles - the player is to be in the middle (half of screen width and half of screen height)
 double[] playerPosition = [screenSize[0] / 2, screenSize[1] / 2];
 
+// Sets an array of doubles to represent the applied movement
 double[] appliedMovement = [0, 0];
 // Gets the value of the square root of 2 divided by 2 (this is used to normalise the player movement)
 double diagonalMovement = Math.Sqrt(2) / 2;
 
+// A constant string used to download resources if it is not available
 const string GitHubRaw = "https://raw.githubusercontent.com/ditpowuh/splashkit-projects/main/collection_game/";
 
 // Gets all the sounds
