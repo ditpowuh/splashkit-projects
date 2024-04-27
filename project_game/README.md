@@ -1,5 +1,18 @@
 # Alterheart (project_game)
-### Quick compile settings
+### Controls
+#### General
+Eliminate all enemies in the location before dying or when the music stops. Dashing can only be done in sync to the beat of the song.
+#### Input controls
+`W` - Move up<br>
+`A` - Move left<br>
+`S` - Move down<br>
+`D` - Move right<br>
+<br>
+`Left click` - Attack/Select<br>
+`Space` - Dash/Dodge<br>
+`ESC` - Pause/Unpause<br>
+`F11` - Fullscreen shortcut (Only when game is paused)<br>
+### Quick compile commands (with settings)
 #### g++ (Regular)
 ```
 g++ -std=c++17 icon.o game.cpp -o Alterheart.exe
