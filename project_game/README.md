@@ -8,10 +8,10 @@ Eliminate all enemies in the location before dying or when the music stops. Dash
 `S` - Move down<br>
 `D` - Move right<br>
 <br>
-`Left click` - Attack/Select<br>
+`Left click` - Attack (In game)/Select (In any menu)<br>
 `Space` - Dash/Dodge<br>
 `ESC` - Pause/Unpause<br>
-`F11` - Fullscreen shortcut (Only when game is paused)<br>
+`F11` - Fullscreen shortcut (Only when game is paused or before game starts)<br>
 ### Quick compile commands (with settings)
 #### g++ (Regular)
 ```
