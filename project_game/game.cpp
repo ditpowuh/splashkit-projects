@@ -1,11 +1,10 @@
 // Using these libraries (Standard + SplashKit)
 #include "splashkit.h"
 #include <filesystem>
+#include <chrono>
 #include <cmath>
 #include <vector>
 #include <map>
-
-#include <chrono>
 
 // Preprocessor macro to replace stick_to_screen_x and stick_to_screen_y with to_world_x and to_world_y - this is made for personal use as it makes it easier for me to understand
 #define stick_to_screen_x to_world_x
@@ -68,7 +67,7 @@ int invincibility_frames = 0;
 float dashing_angle;
 float last_dashed;
 
-int action_amount = 0;
+double action_amount = 0;
 
 const double diagonalMovement = sqrt(2) / 2;
 double applied_movement[] = {0, 0};
@@ -97,6 +96,8 @@ int bpm = 160;
 
 bool game_running = true;
 bool game_pause = false;
+
+double delta_time;
 
 class enemy {
   public:
@@ -130,8 +131,8 @@ class projectile {
     }
 
     void move() {
-      position[0] = position[0] + cos(angle * DEGREES_TO_RADIANS) * speed;
-      position[1] = position[1] + sin(angle * DEGREES_TO_RADIANS) * speed;
+      position[0] = position[0] + cos(angle * DEGREES_TO_RADIANS) * speed * delta_time;
+      position[1] = position[1] + sin(angle * DEGREES_TO_RADIANS) * speed * delta_time;
     }
 
     bool contact() {
@@ -219,17 +220,17 @@ float pythagorean_theorem(float x, float y) {
   return sqrt(pow(x, 2) + pow(y, 2));
 }
 
-bitmap draw_bitmap_with_animation(int elasped_frames, string playing_animation, double position_x, double position_y, int animation_speed = 5) {
-  int current_frame = elasped_frames / animation_speed + 1;
+bitmap draw_bitmap_with_animation(int elasped_time, string playing_animation, double position_x, double position_y, int animation_speed = 5) {
+  int current_frame = elasped_time / animation_speed + 1;
   if (current_frame > animation_map[playing_animation]) {
-    current_frame = current_frame - animation_map[playing_animation] * (elasped_frames / (animation_speed * animation_map[playing_animation]));
+    current_frame = current_frame - animation_map[playing_animation] * (elasped_time / (animation_speed * animation_map[playing_animation]));
   }
   draw_bitmap(playing_animation + to_string(current_frame), position_x, position_y);
   return bitmap_named(playing_animation + to_string(current_frame));
 }
 
-float bounce(int sin_value, float strength, int sharpness = 500) {
-  return abs(pow(sin(PI * (float)sin_value / (60 / (float)bpm * TARGET_FRAMERATE) + PI / 2), sharpness) * strength);
+float bounce(double sin_value, float strength, int sharpness = 500) {
+  return abs(pow(sin(PI * sin_value / (60 / (float)bpm * TARGET_FRAMERATE) + PI / 2), sharpness) * strength);
 }
 
 void begin_stage(stage_data stage) {
@@ -301,29 +302,29 @@ void process_player_movement(float angle) {
     applied_movement[1] = applied_movement[1] * diagonalMovement;
   }
   if (player_current_action == NOTHING) {
-    player_position[0] = player_position[0] + player_speed * applied_movement[0];
-    player_position[1] = player_position[1] + player_speed * applied_movement[1];
+    player_position[0] = player_position[0] + player_speed * applied_movement[0] * delta_time;
+    player_position[1] = player_position[1] + player_speed * applied_movement[1] * delta_time;
   }
 
 }
 
-void process_player_dash(int elasped_frames, float angle, bool in_time, int duration, int strength) {
+void process_player_dash(double elasped_time, float angle, bool in_time, int duration, int strength) {
   if (game_pause) {
     return;
   }
   if ((action_amount > 0 && player_current_action == DASH) || (key_typed(SPACE_KEY) && in_time && player_current_action == NOTHING)) {
     if (action_amount > 0 && player_current_action == DASH) {
-      action_amount = action_amount - 1;
-      if (action_amount == 0) {
+      action_amount = action_amount - delta_time;
+      if (action_amount <= 0) {
         player_current_action = NOTHING;
       }
     }
-    if (key_typed(SPACE_KEY) && in_time && player_current_action == NOTHING) {
+    if (key_typed(SPACE_KEY) && in_time && player_current_action == NOTHING && elasped_time > last_dashed + (60.0 / bpm * TARGET_FRAMERATE) / 2) {
       player_current_action = DASH;
       action_amount = duration;
       dashing_angle = angle;
 
-      last_dashed = elasped_frames; // maybe TEMP
+      last_dashed = elasped_time;
     }
     string particle_animation = "Dash";
     switch (player_direction) {
@@ -335,8 +336,8 @@ void process_player_dash(int elasped_frames, float angle, bool in_time, int dura
     particle dash_particle(particle_animation, player_position[0], player_position[1], 8);
     back_particles.push_back(dash_particle);
 
-    player_position[0] = player_position[0] + cos(dashing_angle * DEGREES_TO_RADIANS) * strength;
-    player_position[1] = player_position[1] + sin(dashing_angle * DEGREES_TO_RADIANS) * strength;
+    player_position[0] = player_position[0] + cos(dashing_angle * DEGREES_TO_RADIANS) * strength * delta_time;
+    player_position[1] = player_position[1] + sin(dashing_angle * DEGREES_TO_RADIANS) * strength * delta_time;
   }
 }
 
@@ -345,14 +346,14 @@ void process_player_attack(float angle) {
     return;
   }
   if (action_amount > 0 && player_current_action == SWING) {
-    action_amount = action_amount - 1;
-    if (action_amount == 0) {
+    action_amount = action_amount - delta_time;
+    if (action_amount <= 0) {
       player_current_action = NOTHING;
     }
   }
   if (action_amount > 0 && player_current_action == SHOOT) {
-    action_amount = action_amount - 1;
-    if (action_amount == 0) {
+    action_amount = action_amount - delta_time;
+    if (action_amount <= 0) {
       player_current_action = NOTHING;
     }
   }
@@ -360,20 +361,20 @@ void process_player_attack(float angle) {
     player_current_action = SWING;
     action_amount = 8;
   }
-  if (mouse_clicked(RIGHT_BUTTON) && player_power >= 5) {
+  if (mouse_clicked(RIGHT_BUTTON) && player_power >= 15) {
     player_current_action = SHOOT;
     action_amount = 8;
     projectile player_projectile(PLAYER, player_position[0] + 16, player_position[1] - 32, "PlayerProjectile", angle, 12.5, 10);
     projectiles.push_back(player_projectile);
-    player_power = player_power - 5;
+    player_power = player_power - 15;
   }
   if (player_current_action == SWING) {
-    player_position[0] = player_position[0] + cos(angle * DEGREES_TO_RADIANS) * 5;
-    player_position[1] = player_position[1] + sin(angle * DEGREES_TO_RADIANS) * 5;
+    player_position[0] = player_position[0] + cos(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
+    player_position[1] = player_position[1] + sin(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
   }
   if (player_current_action == SHOOT) {
-    player_position[0] = player_position[0] + cos((angle - 180) * DEGREES_TO_RADIANS) * 2;
-    player_position[1] = player_position[1] + sin((angle - 180) * DEGREES_TO_RADIANS) * 2;
+    player_position[0] = player_position[0] + cos((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
+    player_position[1] = player_position[1] + sin((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
   }
 }
 
@@ -530,6 +531,7 @@ int main() {
   hide_mouse();
 
   stage_data stage1 = {120, "test1"};
+  stage_data stage2 = {160, "test"};
 
   bitmap test = load_bitmap("test", "Graphics/test1.png"); //TEMP
 
@@ -538,11 +540,19 @@ int main() {
   free_bitmap(splash_text);
 
   // maybe main menu after in here
+  
+  double elasped_time = 0;
+  begin_stage(stage2);
+  //play_music("test"); //TEMP
 
-  int elasped_frames = 0;
-  play_music("test"); //TEMP
-
+  chrono::steady_clock::time_point previous_time = chrono::steady_clock::now();
   while (game_running && !quit_requested()) {
+
+    chrono::steady_clock::time_point current_time = chrono::steady_clock::now();
+    delta_time = chrono::duration_cast<chrono::duration<double>>(current_time - previous_time).count();
+    delta_time = delta_time * TARGET_FRAMERATE * (60.0 / TARGET_FRAMERATE);
+    previous_time = chrono::steady_clock::now();
+
     if (key_typed(ESCAPE_KEY)) {
       game_pause = !game_pause;
       if (game_pause) {
@@ -578,14 +588,14 @@ int main() {
     }
 
     process_player_movement(pointing_angle);
-    process_player_dash(elasped_frames, pointing_angle, bounce(elasped_frames, 1, 1) > 0.5, 10, 15);
+    process_player_dash(elasped_time, pointing_angle, bounce(elasped_time, 1, 1) > 0.5, 10, 15);
     process_player_attack(pointing_angle);
 
     clear_screen(color_white());
     draw_bitmap(test, 0, 0);
 
     for (int i = 0; i < back_particles.size(); i++) {
-      draw_bitmap_with_animation(elasped_frames, back_particles[i].animation, back_particles[i].position[0], SCREEN_SIZE[1] - back_particles[i].position[1], 1);
+      draw_bitmap_with_animation(elasped_time, back_particles[i].animation, back_particles[i].position[0], SCREEN_SIZE[1] - back_particles[i].position[1], 1);
       if (!game_pause) {
         if (back_particles[i].finished()) {
           back_particles.erase(back_particles.begin() + i);
@@ -594,37 +604,43 @@ int main() {
     }
 
     if (invincibility_frames > 0) {
-      if (elasped_frames % 6 == 0 || elasped_frames % 6 == 1 || elasped_frames % 6 == 2) {
-        bitmap player = draw_bitmap_with_animation(elasped_frames, player_animation, player_position[0], SCREEN_SIZE[1] - player_position[1], 6);
+      if ((int)elasped_time % 6 == 0 || (int)elasped_time % 6 == 1 || (int)elasped_time % 6 == 2) {
+        bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position[0], SCREEN_SIZE[1] - player_position[1], 6);
       }
     }
     else {
-      bitmap player = draw_bitmap_with_animation(elasped_frames, player_animation, player_position[0], SCREEN_SIZE[1] - player_position[1], 6);
+      bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position[0], SCREEN_SIZE[1] - player_position[1], 6);
     }
 
     for (int i = 0; i < projectiles.size(); i++) {
-      draw_bitmap_with_animation(elasped_frames, projectiles[i].animation, projectiles[i].position[0], SCREEN_SIZE[1] - projectiles[i].position[1], 1);
-      projectiles[i].move();
+      draw_bitmap_with_animation(elasped_time, projectiles[i].animation, projectiles[i].position[0], SCREEN_SIZE[1] - projectiles[i].position[1], 1);
+      if (!game_pause) {
+        projectiles[i].move();
+      }
     }
 
-    color hp_bar = rgba_color(255, 195, 195, 175 + (int)bounce(elasped_frames, 20, 2));
+    if (bounce(elasped_time, 1, 150) > 0.5 && player_current_action != SHOOT) {
+      player_power = player_power + 5;
+      if (player_power > 100) {
+        player_power = 100;
+      }
+    }
+
+    color hp_bar = rgba_color(255, 195, 195, 180 + (int)bounce(elasped_time, 25, 2));
     fill_rectangle(hp_bar, stick_to_screen_x(25), stick_to_screen_y(25), player_health * 4, 25);
-    color power_bar = rgba_color(192, 178, 209, 175 + (int)bounce(elasped_frames, 20, 2));
+    color power_bar = rgba_color(192, 178, 209, 180 + (int)bounce(elasped_time, 25, 2));
     fill_rectangle(power_bar, stick_to_screen_x(25), stick_to_screen_y(55), player_power * 4, 10);
-    draw_bitmap(music_heart, stick_to_screen_x(5), stick_to_screen_y(65 - bounce(elasped_frames, 4, 300)));
+    draw_bitmap(music_heart, stick_to_screen_x(5), stick_to_screen_y(65 - bounce(elasped_time, 4, 300)));
 
     process_pause_menu();
     draw_cursor();
 
     if (!game_pause) {
-      elasped_frames = elasped_frames + 1;
+      elasped_time = elasped_time + delta_time;
     }
 
-    if (bounce(elasped_frames, 1, 2) > 0.9 && player_current_action != NOTHING) {
-      if (!sound_effect_playing("Bling")) {
-        play_sound_effect("Bling");
-      }
-    }
+    int current_fps = (int)round(60 / delta_time);
+    draw_text_on_window(main_window, to_string(current_fps), color_white(), main_font, 16, stick_to_screen_x(8), stick_to_screen_y(SCREEN_SIZE[1] - 20));
 
     refresh_screen(TARGET_FRAMERATE);
     process_events();
