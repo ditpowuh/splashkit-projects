@@ -1,15 +1,18 @@
 # Alterheart (project_game)
 ### Controls
 #### General
-Eliminate all enemies in the location before dying or when the music stops. Dashing can only be done in sync to the beat of the song.
+Eliminate all enemies in the location before dying or before the music finishes playing. Dashing can only be done in sync to the beat of the song.
+<br>
+Shooting and casting can be done without being in beat, but the energy/power of the player recharges in sync to the beat.
 #### Input controls
 `W` - Move up<br>
 `A` - Move left<br>
 `S` - Move down<br>
 `D` - Move right<br>
 <br>
-`Left click` - Attack (In game)/Select (In any menu)<br>
-`Space` - Dash/Dodge<br>
+`Left click` - Shoot (In game)/Select (In any menu)<br>
+`Right click` - Cast (In game)<br>
+`Space` - Dash/Dodge (In game whilst in sync)<br>
 `ESC` - Pause/Unpause<br>
 `F11` - Fullscreen shortcut (Only when game is paused or before game starts)<br>
 ### Quick compile commands (with settings)

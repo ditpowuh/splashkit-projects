@@ -61,8 +61,8 @@ int player_power = 100;
 bool player_moving = false;
 enum player_action {
   NOTHING,
-  SWING,
   SHOOT,
+  CAST,
   DASH
 };
 player_action player_current_action = NOTHING;
@@ -73,6 +73,7 @@ float dashing_angle;
 float last_dashed;
 
 double action_amount = 0;
+float shake_amount = 0;
 
 const double diagonalMovement = sqrt(2) / 2;
 double applied_movement[] = {0, 0};
@@ -120,6 +121,9 @@ class enemy {
 };
 
 class projectile {
+  private:
+    int animation_offset = 0;
+
   public:
     projectile_type type;
     position position;
@@ -128,7 +132,7 @@ class projectile {
     float speed;
     int animation_speed;
     int damage;
-    projectile(projectile_type type, double x, double y, string animation, float angle, float speed, int animation_speed, int damage) {
+    projectile(projectile_type type, double x, double y, string animation, float angle, float speed, int animation_speed, int damage, int animation_offset = 0) {
       this->type = type;
       position.x = x;
       position.y = y;
@@ -137,6 +141,11 @@ class projectile {
       this->speed = speed;
       this->animation_speed = animation_speed;
       this->damage = damage;
+      this->animation_offset = animation_offset;
+    }
+
+    int offset() {
+      return animation_offset;
     }
 
     void move() {
@@ -229,10 +238,10 @@ float pythagorean_theorem(float x, float y) {
   return sqrt(pow(x, 2) + pow(y, 2));
 }
 
-bitmap draw_bitmap_with_animation(int elasped_time, string playing_animation, double position_x, double position_y, int animation_speed = 5) {
-  int current_frame = elasped_time / animation_speed + 1;
+bitmap draw_bitmap_with_animation(int elasped_time, string playing_animation, double position_x, double position_y, int animation_speed = 5, int offset = 0) {
+  int current_frame = (elasped_time + offset) / animation_speed + 1;
   if (current_frame > animation_map[playing_animation]) {
-    current_frame = current_frame - animation_map[playing_animation] * (elasped_time / (animation_speed * animation_map[playing_animation]));
+    current_frame = current_frame - animation_map[playing_animation] * ((elasped_time + offset) / (animation_speed * animation_map[playing_animation]));
   }
   draw_bitmap(playing_animation + to_string(current_frame), position_x, position_y);
   return bitmap_named(playing_animation + to_string(current_frame));
@@ -240,6 +249,11 @@ bitmap draw_bitmap_with_animation(int elasped_time, string playing_animation, do
 
 float bounce(double sin_value, float strength, int sharpness = 500) {
   return abs(pow(sin(PI * sin_value / (60 / (float)bpm * TARGET_FRAMERATE) + PI / 2), sharpness) * strength);
+}
+
+float shake(float &shake_amount) {
+  shake_amount = shake_amount * 0.9;
+  return (rnd() * 2 - 1) * shake_amount;
 }
 
 void begin_stage(stage_data stage) {
@@ -334,6 +348,7 @@ void process_player_dash(double elasped_time, float angle, bool in_time, int dur
       dashing_angle = angle;
 
       last_dashed = elasped_time;
+      shake_amount = 20;
     }
     string particle_animation = "Dash";
     switch (player_direction) {
@@ -350,11 +365,11 @@ void process_player_dash(double elasped_time, float angle, bool in_time, int dur
   }
 }
 
-void process_player_attack(float angle) {
+void process_player_attack(int elasped_time, float angle) {
   if (game_pause) {
     return;
   }
-  if (action_amount > 0 && player_current_action == SWING) {
+  if (action_amount > 0 && player_current_action == CAST) {
     action_amount = action_amount - delta_time;
     if (action_amount <= 0) {
       player_current_action = NOTHING;
@@ -366,23 +381,23 @@ void process_player_attack(float angle) {
       player_current_action = NOTHING;
     }
   }
-  if (mouse_clicked(LEFT_BUTTON)) {
-    player_current_action = SWING;
-    action_amount = 8;
-    projectile player_slash(PLAYER, player_position.x, player_position.y, "Slash1", 0, 1, 5, 10);
-    projectiles.push_back(player_slash);
-  }
-  if (mouse_clicked(RIGHT_BUTTON) && player_power >= 15) {
+  if (mouse_clicked(LEFT_BUTTON) && player_power >= 12) {
     player_current_action = SHOOT;
     action_amount = 8;
-    projectile player_projectile(PLAYER, player_position.x + 16, player_position.y - 32, "PlayerProjectile", angle + rnd(-10, 10), 12.5, 2, 10);
+    projectile player_projectile(PLAYER, player_position.x + 16, player_position.y - 32, "PlayerProjectile", angle + rnd(-10, 10), 12.5, 2, 10, elasped_time);
     projectiles.push_back(player_projectile);
     play_sound_effect("Shoot");
-    player_power = player_power - 15;
+    player_power = player_power - 12;
+    shake_amount = 15;
   }
-  if (player_current_action == SWING) {
-    player_position.x = player_position.x + cos(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
-    player_position.y = player_position.y + sin(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
+  if (mouse_clicked(RIGHT_BUTTON) && player_power >= 55) {
+    player_current_action = CAST;
+    action_amount = 8;
+    particle melee_particle("Sigil", player_position.x - 32, player_position.y - 16, 60);
+    back_particles.push_back(melee_particle);
+    play_sound_effect("Sigil");
+    player_power = player_power - 55;
+    shake_amount = 500;
   }
   if (player_current_action == SHOOT) {
     player_position.x = player_position.x + cos((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
@@ -427,14 +442,14 @@ void process_pause_menu() {
     draw_bitmap(windowed, stick_to_screen_x(SCREEN_SIZE[0] - 64 - 1), stick_to_screen_y(1));
     if (bitmap_collision(mouse_cursor, stick_to_screen_x(adjusted_mouse_x()), stick_to_screen_y(adjusted_mouse_y()), windowed, stick_to_screen_x(SCREEN_SIZE[0] - 64), stick_to_screen_y(1)) && mouse_clicked(LEFT_BUTTON)) {
       window_toggle_fullscreen(main_window);
-      play_sound_effect("Toggle");
+      play_sound_effect("Click");
     }
   }
   else {
     draw_bitmap(fullscreen, stick_to_screen_x(SCREEN_SIZE[0] - 64 - 1), stick_to_screen_y(1));
     if (bitmap_collision(mouse_cursor, stick_to_screen_x(adjusted_mouse_x()), stick_to_screen_y(adjusted_mouse_y()), fullscreen, stick_to_screen_x(SCREEN_SIZE[0] - 64), stick_to_screen_y(1)) && mouse_clicked(LEFT_BUTTON)) {
       window_toggle_fullscreen(main_window);
-      play_sound_effect("Toggle");
+      play_sound_effect("Click");
     }
   }
 
@@ -454,14 +469,16 @@ void draw_cursor(bool force_cursor = false) {
 }
 
 void run_splash_screen(bitmap splash_text) {
-  for (int i = 0; i < 2; i++) {
-    for (int a = 255; a > 0; a--) {
-      if (quit_requested()) {
-        exit(0);
+  for (int i = 0; i < 3; i++) {
+    for (int a = 85; a > 0; a--) {
+      if (quit_requested()) exit(0);
+      if (key_typed(ESCAPE_KEY)) {
+        play_sound_effect("Click");
+        return;
       }
       if (key_typed(F11_KEY)) {
         window_toggle_fullscreen(main_window);
-        play_sound_effect("Toggle");
+        play_sound_effect("Click");
       }
       clear_screen(color_black());
       switch (i) {
@@ -469,10 +486,14 @@ void run_splash_screen(bitmap splash_text) {
           draw_bitmap(splash_text, SCREEN_SIZE[0] / 2 - 170, SCREEN_SIZE[1] / 2 - 76);
           break;
         case 1:
-          draw_text_on_window(main_window, "FULLSCREEN RECOMMENDED", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 250, SCREEN_SIZE[1] / 2 - 30);
+          draw_text_on_window(main_window, "MAY CONTAIN FLASHING LIGHTS", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 300, SCREEN_SIZE[1] / 2 - 20);
+          break;
+        case 2:
+          draw_text_on_window(main_window, "FULLSCREEN & HEADPHONES", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 250, SCREEN_SIZE[1] / 2 - 40);
+          draw_text_on_window(main_window, "RECOMMENDED", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 125, SCREEN_SIZE[1] / 2);
           break;
       }
-      color fade_effect = rgba_color(0, 0, 0, a);
+      color fade_effect = rgba_color(0, 0, 0, a * 3);
       fill_rectangle(fade_effect, 0, 0, SCREEN_SIZE[0], SCREEN_SIZE[1]);
 
       ::draw_cursor(true);
@@ -480,13 +501,16 @@ void run_splash_screen(bitmap splash_text) {
       refresh_screen(TARGET_FRAMERATE);
       process_events();
     }
-    for (int a = 0; a < 255; a++) {
-      if (quit_requested()) {
-        exit(0);
+    int counter = 0;
+    while (counter < 90) {
+      if (quit_requested()) exit(0);
+      if (key_typed(ESCAPE_KEY)) {
+        play_sound_effect("Click");
+        return;
       }
       if (key_typed(F11_KEY)) {
         window_toggle_fullscreen(main_window);
-        play_sound_effect("Toggle");
+        play_sound_effect("Click");
       }
       clear_screen(color_black());
       switch (i) {
@@ -494,10 +518,44 @@ void run_splash_screen(bitmap splash_text) {
           draw_bitmap(splash_text, SCREEN_SIZE[0] / 2 - 170, SCREEN_SIZE[1] / 2 - 76);
           break;
         case 1:
-          draw_text_on_window(main_window, "FULLSCREEN RECOMMENDED", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 250, SCREEN_SIZE[1] / 2 - 30);
+          draw_text_on_window(main_window, "MAY CONTAIN FLASHING LIGHTS", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 300, SCREEN_SIZE[1] / 2 - 20);
+          break;
+        case 2:
+          draw_text_on_window(main_window, "FULLSCREEN & HEADPHONES", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 250, SCREEN_SIZE[1] / 2 - 40);
+          draw_text_on_window(main_window, "RECOMMENDED", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 125, SCREEN_SIZE[1] / 2);
           break;
       }
-      color fade_effect = rgba_color(0, 0, 0, a);
+      counter++;
+
+      ::draw_cursor(true);
+
+      refresh_screen(TARGET_FRAMERATE);
+      process_events();
+    }
+    for (int a = 0; a < 85; a++) {
+      if (quit_requested()) exit(0);
+      if (key_typed(ESCAPE_KEY)) {
+        play_sound_effect("Click");
+        return;
+      }
+      if (key_typed(F11_KEY)) {
+        window_toggle_fullscreen(main_window);
+        play_sound_effect("Click");
+      }
+      clear_screen(color_black());
+      switch (i) {
+        case 0:
+          draw_bitmap(splash_text, SCREEN_SIZE[0] / 2 - 170, SCREEN_SIZE[1] / 2 - 76);
+          break;
+        case 1:
+          draw_text_on_window(main_window, "MAY CONTAIN FLASHING LIGHTS", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 300, SCREEN_SIZE[1] / 2 - 20);
+          break;
+        case 2:
+          draw_text_on_window(main_window, "FULLSCREEN & HEADPHONES", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 250, SCREEN_SIZE[1] / 2 - 40);
+          draw_text_on_window(main_window, "RECOMMENDED", color_white(), main_font, 50, SCREEN_SIZE[0] / 2 - 125, SCREEN_SIZE[1] / 2);
+          break;
+      }
+      color fade_effect = rgba_color(0, 0, 0, a * 3);
       fill_rectangle(fade_effect, 0, 0, SCREEN_SIZE[0], SCREEN_SIZE[1]);
 
       ::draw_cursor(true);
@@ -548,7 +606,7 @@ int main() {
   bitmap test = load_bitmap("test", "Graphics/test1.png"); //TEMP
 
   bitmap splash_text = load_bitmap("Logo", "Graphics/Logo.png");
-  //run_splash_screen(splash_text);
+  run_splash_screen(splash_text);
   free_bitmap(splash_text);
 
   // maybe main menu after in here
@@ -579,7 +637,7 @@ int main() {
     if (key_typed(F11_KEY)) {
       if (game_pause) {
         window_toggle_fullscreen(main_window);
-        play_sound_effect("Toggle");
+        play_sound_effect("Click");
       }
     }
 
@@ -595,13 +653,13 @@ int main() {
     float distance_difference = pythagorean_theorem(x_difference, y_difference);
 
     if (!game_pause) {
-      set_camera_x(player_position.x - SCREEN_SIZE[0] / 2 + 32 + cos(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 16 * 2));
-      set_camera_y((SCREEN_SIZE[1] - player_position.y) - SCREEN_SIZE[1] / 2 + 64 - sin(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 9 * 2));
+      set_camera_x(player_position.x - SCREEN_SIZE[0] / 2 + 32 + cos(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 16 * 2) + shake(shake_amount));
+      set_camera_y((SCREEN_SIZE[1] - player_position.y) - SCREEN_SIZE[1] / 2 + 64 - sin(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 9 * 2) + shake(shake_amount));
     }
 
     process_player_movement(pointing_angle);
     process_player_dash(elasped_time, pointing_angle, bounce(elasped_time, 1, 1) > 0.5, 10, 15);
-    process_player_attack(pointing_angle);
+    process_player_attack(elasped_time, pointing_angle);
 
     clear_screen(color_white());
     draw_bitmap(test, 0, 0);
@@ -625,14 +683,14 @@ int main() {
     }
 
     for (int i = 0; i < projectiles.size(); i++) {
-      draw_bitmap_with_animation(elasped_time, projectiles[i].animation, projectiles[i].position.x, SCREEN_SIZE[1] - projectiles[i].position.y, projectiles[i].animation_speed);
+      draw_bitmap_with_animation(elasped_time, projectiles[i].animation, projectiles[i].position.x, SCREEN_SIZE[1] - projectiles[i].position.y, projectiles[i].animation_speed, projectiles[i].offset());
       if (!game_pause) {
         projectiles[i].move();
       }
     }
 
-    if (bounce(elasped_time, 1, 150) > 0.5 && player_current_action != SHOOT) {
-      player_power = player_power + 5;
+    if (bounce(elasped_time, 1, 150) > 0.5 && player_current_action != SHOOT && !game_pause) {
+      player_power = player_power + 8;
       if (player_power > 100) {
         player_power = 100;
       }
