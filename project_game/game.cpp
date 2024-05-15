@@ -32,15 +32,20 @@ struct settings_data {
   float music_volume;
   float sound_volume;
 };
-typedef struct settings_data settings;
+settings_data settings = {1.0, 1.0};
 
 struct stage_data {
   int bpm;
   string music;
 };
 
-// Sets the position of the player as an array of doubles
-double player_position[] = {0, 0};
+struct position {
+  double x;
+  double y;
+};
+
+// Sets the position of the player
+position player_position = {0, 0};
 // Sets the player speed as a double
 double player_speed = 6;
 // Creates an enumeration to represent direction
@@ -88,6 +93,8 @@ bitmap selected = load_bitmap("Selected Button", "Graphics/Selected Button.png")
 bitmap fullscreen = load_bitmap("Fullscreen", "Graphics/Fullscreen.png");
 bitmap windowed = load_bitmap("Windowed", "Graphics/Windowed.png");
 bitmap pause_separator = load_bitmap("Pause Separator", "Graphics/Pause Separator.png");
+bitmap health_icon = load_bitmap("Health Icon", "Graphics/Health Icon.png");
+bitmap power_icon = load_bitmap("Power Icon", "Graphics/Power Icon.png");
 
 string player_animation = "IdleDown";
 map<string, int> animation_map;
@@ -102,12 +109,12 @@ double delta_time;
 class enemy {
   public:
     int hp;
-    double position[2];
+    position position;
     string animation;
     enemy(int hp, double x, double y, string animation) {
       this->hp = hp;
-      position[0] = x;
-      position[1] = y;
+      position.x = x;
+      position.y = y;
       this->animation = animation;
     }
 };
@@ -115,24 +122,26 @@ class enemy {
 class projectile {
   public:
     projectile_type type;
-    double position[2];
+    position position;
     string animation;
     float angle;
     float speed;
+    int animation_speed;
     int damage;
-    projectile(projectile_type type, double x, double y, string animation, float angle, float speed, int damage) {
+    projectile(projectile_type type, double x, double y, string animation, float angle, float speed, int animation_speed, int damage) {
       this->type = type;
-      position[0] = x;
-      position[1] = y;
+      position.x = x;
+      position.y = y;
       this->animation = animation;
       this->angle = angle;
       this->speed = speed;
+      this->animation_speed = animation_speed;
       this->damage = damage;
     }
 
     void move() {
-      position[0] = position[0] + cos(angle * DEGREES_TO_RADIANS) * speed * delta_time;
-      position[1] = position[1] + sin(angle * DEGREES_TO_RADIANS) * speed * delta_time;
+      position.x = position.x + cos(angle * DEGREES_TO_RADIANS) * speed * delta_time;
+      position.y = position.y + sin(angle * DEGREES_TO_RADIANS) * speed * delta_time;
     }
 
     bool contact() {
@@ -150,12 +159,12 @@ class particle {
     int lifespan;
 
   public:
-    double position[2];
+    position position;
     string animation;
     particle(string animation, double x, double y, int lifespan) {
       this->animation = animation;
-      position[0] = x;
-      position[1] = y;
+      position.x = x;
+      position.y = y;
       this->lifespan = lifespan + 1;
     }
 
@@ -175,11 +184,11 @@ class collectible {
 
   public:
     string item_name;
-    double position[2];
+    position position;
     collectible(string item_name, double x, double y, string sprite) {
       this->item_name = item_name;
-      position[0] = x;
-      position[1] = y;
+      position.x = x;
+      position.y = y;
       this->sprite = sprite;
     }
 };
@@ -302,8 +311,8 @@ void process_player_movement(float angle) {
     applied_movement[1] = applied_movement[1] * diagonalMovement;
   }
   if (player_current_action == NOTHING) {
-    player_position[0] = player_position[0] + player_speed * applied_movement[0] * delta_time;
-    player_position[1] = player_position[1] + player_speed * applied_movement[1] * delta_time;
+    player_position.x = player_position.x + player_speed * applied_movement[0] * delta_time;
+    player_position.y = player_position.y + player_speed * applied_movement[1] * delta_time;
   }
 
 }
@@ -333,11 +342,11 @@ void process_player_dash(double elasped_time, float angle, bool in_time, int dur
       case RIGHT: particle_animation = particle_animation + "Right"; break;
       case LEFT: particle_animation = particle_animation + "Left"; break;
     }
-    particle dash_particle(particle_animation, player_position[0], player_position[1], 8);
+    particle dash_particle(particle_animation, player_position.x, player_position.y, 8);
     back_particles.push_back(dash_particle);
 
-    player_position[0] = player_position[0] + cos(dashing_angle * DEGREES_TO_RADIANS) * strength * delta_time;
-    player_position[1] = player_position[1] + sin(dashing_angle * DEGREES_TO_RADIANS) * strength * delta_time;
+    player_position.x = player_position.x + cos(dashing_angle * DEGREES_TO_RADIANS) * strength * delta_time;
+    player_position.y = player_position.y + sin(dashing_angle * DEGREES_TO_RADIANS) * strength * delta_time;
   }
 }
 
@@ -360,21 +369,24 @@ void process_player_attack(float angle) {
   if (mouse_clicked(LEFT_BUTTON)) {
     player_current_action = SWING;
     action_amount = 8;
+    projectile player_slash(PLAYER, player_position.x, player_position.y, "Slash1", 0, 1, 5, 10);
+    projectiles.push_back(player_slash);
   }
   if (mouse_clicked(RIGHT_BUTTON) && player_power >= 15) {
     player_current_action = SHOOT;
     action_amount = 8;
-    projectile player_projectile(PLAYER, player_position[0] + 16, player_position[1] - 32, "PlayerProjectile", angle, 12.5, 10);
+    projectile player_projectile(PLAYER, player_position.x + 16, player_position.y - 32, "PlayerProjectile", angle + rnd(-10, 10), 12.5, 2, 10);
     projectiles.push_back(player_projectile);
+    play_sound_effect("Shoot");
     player_power = player_power - 15;
   }
   if (player_current_action == SWING) {
-    player_position[0] = player_position[0] + cos(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
-    player_position[1] = player_position[1] + sin(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
+    player_position.x = player_position.x + cos(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
+    player_position.y = player_position.y + sin(angle * DEGREES_TO_RADIANS) * 5 * delta_time;
   }
   if (player_current_action == SHOOT) {
-    player_position[0] = player_position[0] + cos((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
-    player_position[1] = player_position[1] + sin((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
+    player_position.x = player_position.x + cos((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
+    player_position.y = player_position.y + sin((angle - 180) * DEGREES_TO_RADIANS) * 2 * delta_time;
   }
 }
 
@@ -540,7 +552,7 @@ int main() {
   free_bitmap(splash_text);
 
   // maybe main menu after in here
-  
+
   double elasped_time = 0;
   begin_stage(stage2);
   //play_music("test"); //TEMP
@@ -577,14 +589,14 @@ int main() {
       play_sound_effect("Pause");
     }
 
-    int y_difference = stick_to_screen_y(SCREEN_SIZE[1] - adjusted_mouse_y()) - (SCREEN_SIZE[1] - player_position[1] + 64);
-    int x_difference = stick_to_screen_x(adjusted_mouse_x()) - (player_position[0] + 32);
+    int y_difference = stick_to_screen_y(SCREEN_SIZE[1] - adjusted_mouse_y()) - (SCREEN_SIZE[1] - player_position.y + 64);
+    int x_difference = stick_to_screen_x(adjusted_mouse_x()) - (player_position.x + 32);
     float pointing_angle = atan2(y_difference, x_difference) * RADIANS_TO_DEGREES;
     float distance_difference = pythagorean_theorem(x_difference, y_difference);
 
     if (!game_pause) {
-      set_camera_x(player_position[0] - SCREEN_SIZE[0] / 2 + 32 + cos(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 16 * 2));
-      set_camera_y((SCREEN_SIZE[1] - player_position[1]) - SCREEN_SIZE[1] / 2 + 64 - sin(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 9 * 2));
+      set_camera_x(player_position.x - SCREEN_SIZE[0] / 2 + 32 + cos(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 16 * 2));
+      set_camera_y((SCREEN_SIZE[1] - player_position.y) - SCREEN_SIZE[1] / 2 + 64 - sin(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 9 * 2));
     }
 
     process_player_movement(pointing_angle);
@@ -595,7 +607,7 @@ int main() {
     draw_bitmap(test, 0, 0);
 
     for (int i = 0; i < back_particles.size(); i++) {
-      draw_bitmap_with_animation(elasped_time, back_particles[i].animation, back_particles[i].position[0], SCREEN_SIZE[1] - back_particles[i].position[1], 1);
+      draw_bitmap_with_animation(elasped_time, back_particles[i].animation, back_particles[i].position.x, SCREEN_SIZE[1] - back_particles[i].position.y, 1);
       if (!game_pause) {
         if (back_particles[i].finished()) {
           back_particles.erase(back_particles.begin() + i);
@@ -605,15 +617,15 @@ int main() {
 
     if (invincibility_frames > 0) {
       if ((int)elasped_time % 6 == 0 || (int)elasped_time % 6 == 1 || (int)elasped_time % 6 == 2) {
-        bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position[0], SCREEN_SIZE[1] - player_position[1], 6);
+        bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position.x, SCREEN_SIZE[1] - player_position.y, 6);
       }
     }
     else {
-      bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position[0], SCREEN_SIZE[1] - player_position[1], 6);
+      bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position.x, SCREEN_SIZE[1] - player_position.y, 6);
     }
 
     for (int i = 0; i < projectiles.size(); i++) {
-      draw_bitmap_with_animation(elasped_time, projectiles[i].animation, projectiles[i].position[0], SCREEN_SIZE[1] - projectiles[i].position[1], 1);
+      draw_bitmap_with_animation(elasped_time, projectiles[i].animation, projectiles[i].position.x, SCREEN_SIZE[1] - projectiles[i].position.y, projectiles[i].animation_speed);
       if (!game_pause) {
         projectiles[i].move();
       }
@@ -627,10 +639,12 @@ int main() {
     }
 
     color hp_bar = rgba_color(255, 195, 195, 180 + (int)bounce(elasped_time, 25, 2));
-    fill_rectangle(hp_bar, stick_to_screen_x(25), stick_to_screen_y(25), player_health * 4, 25);
+    fill_rectangle(hp_bar, stick_to_screen_x(25), stick_to_screen_y(25), player_health * 4.5, 32);
+    draw_bitmap(health_icon, stick_to_screen_x(25), stick_to_screen_y(25));
     color power_bar = rgba_color(192, 178, 209, 180 + (int)bounce(elasped_time, 25, 2));
-    fill_rectangle(power_bar, stick_to_screen_x(25), stick_to_screen_y(55), player_power * 4, 10);
-    draw_bitmap(music_heart, stick_to_screen_x(5), stick_to_screen_y(65 - bounce(elasped_time, 4, 300)));
+    fill_rectangle(power_bar, stick_to_screen_x(25), stick_to_screen_y(65), player_power * 4.5, 16);
+    draw_bitmap(power_icon, stick_to_screen_x(25), stick_to_screen_y(65));
+    draw_bitmap(music_heart, stick_to_screen_x(5), stick_to_screen_y(75 - bounce(elasped_time, 4, 300)));
 
     process_pause_menu();
     draw_cursor();
