@@ -603,7 +603,8 @@ int main() {
   stage_data stage1 = {120, "test1"};
   stage_data stage2 = {160, "test"};
 
-  bitmap test = load_bitmap("test", "Graphics/test1.png"); //TEMP
+  bitmap traversable_map = load_bitmap("Map1", "Graphics/Island.png");
+  bitmap visual_map = load_bitmap("Map2", "Graphics/Under Island.png");
 
   bitmap splash_text = load_bitmap("Logo", "Graphics/Logo.png");
   run_splash_screen(splash_text);
@@ -612,7 +613,7 @@ int main() {
   // maybe main menu after in here
 
   double elasped_time = 0;
-  begin_stage(stage2);
+  begin_stage(stage1);
   //play_music("test"); //TEMP
 
   chrono::steady_clock::time_point previous_time = chrono::steady_clock::now();
@@ -661,8 +662,10 @@ int main() {
     process_player_dash(elasped_time, pointing_angle, bounce(elasped_time, 1, 1) > 0.5, 10, 15);
     process_player_attack(elasped_time, pointing_angle);
 
-    clear_screen(color_white());
-    draw_bitmap(test, 0, 0);
+    clear_screen(rgba_color(219, 157, 225, 255));
+    draw_bitmap_with_animation(elasped_time, "Water", 0, 0, 4);
+    draw_bitmap(visual_map, 0, 0);
+    draw_bitmap(traversable_map, 0, 0);
 
     for (int i = 0; i < back_particles.size(); i++) {
       draw_bitmap_with_animation(elasped_time, back_particles[i].animation, back_particles[i].position.x, SCREEN_SIZE[1] - back_particles[i].position.y, 1);
