@@ -68,9 +68,11 @@ enum player_action {
 player_action player_current_action = NOTHING;
 
 int invincibility_frames = 0;
+float falling_frames = 0;
 
-float dashing_angle;
+position last_dash_position;
 float last_dashed;
+float dashing_angle;
 
 double action_amount = 0;
 float shake_amount = 0;
@@ -104,6 +106,7 @@ int bpm = 160;
 
 bool game_running = true;
 bool game_pause = false;
+bool game_lose = false;
 
 double delta_time;
 
@@ -261,7 +264,7 @@ void begin_stage(stage_data stage) {
   play_music(stage.music);
 }
 
-void process_player_movement(float angle) {
+void process_player_movement(float angle, bitmap traversable_map) {
   applied_movement[0] = 0;
   applied_movement[1] = 0;
 
@@ -292,9 +295,9 @@ void process_player_movement(float angle) {
     player_moving = false;
     player_animation = "Idle";
   }
-  int dashing_direciton = (int)round((angle_in_360(angle) + 90) / 90);
+  int action_direction = (int)round((angle_in_360(angle) + 90) / 90);
   if (action_amount > 0) {
-    switch (dashing_direciton) {
+    switch (action_direction) {
       case 1:
       case 5:
         player_direction = RIGHT;
@@ -325,13 +328,21 @@ void process_player_movement(float angle) {
     applied_movement[1] = applied_movement[1] * diagonalMovement;
   }
   if (player_current_action == NOTHING) {
-    player_position.x = player_position.x + player_speed * applied_movement[0] * delta_time;
-    player_position.y = player_position.y + player_speed * applied_movement[1] * delta_time;
+    position player_point_x = {player_position.x + 32 + applied_movement[0] * 8, SCREEN_SIZE[1] - player_position.y + 104};
+    position player_point_y = {player_position.x + 32, SCREEN_SIZE[1] - player_position.y + 104 - applied_movement[1] * 8};
+
+    if (bitmap_point_collision(traversable_map, 0, 0, player_point_x.x, player_point_x.y)) {
+      player_position.x = player_position.x + player_speed * applied_movement[0] * delta_time;
+    }
+    if (bitmap_point_collision(traversable_map, 0, 0, player_point_y.x, player_point_y.y)) {
+      player_position.y = player_position.y + player_speed * applied_movement[1] * delta_time;
+    }
+
   }
 
 }
 
-void process_player_dash(double elasped_time, float angle, bool in_time, int duration, int strength) {
+void process_player_dash(double elasped_time, float angle, bool in_time, int duration, float strength) {
   if (game_pause) {
     return;
   }
@@ -348,7 +359,8 @@ void process_player_dash(double elasped_time, float angle, bool in_time, int dur
       dashing_angle = angle;
 
       last_dashed = elasped_time;
-      shake_amount = 20;
+      last_dash_position = player_position;
+      shake_amount = 25;
     }
     string particle_animation = "Dash";
     switch (player_direction) {
@@ -369,13 +381,7 @@ void process_player_attack(int elasped_time, float angle) {
   if (game_pause) {
     return;
   }
-  if (action_amount > 0 && player_current_action == CAST) {
-    action_amount = action_amount - delta_time;
-    if (action_amount <= 0) {
-      player_current_action = NOTHING;
-    }
-  }
-  if (action_amount > 0 && player_current_action == SHOOT) {
+  if (action_amount > 0 && (player_current_action == CAST || player_current_action == SHOOT)) {
     action_amount = action_amount - delta_time;
     if (action_amount <= 0) {
       player_current_action = NOTHING;
@@ -566,6 +572,12 @@ void run_splash_screen(bitmap splash_text) {
   }
 }
 
+void take_damage_player(int health) {
+  player_health = player_health - health;
+  invincibility_frames = 45;
+  // play hurt sound here
+}
+
 int main() {
   // Loading all folders in Graphics folder
   for (const auto &sub_directories : filesystem::directory_iterator("Graphics")) {
@@ -601,7 +613,8 @@ int main() {
   hide_mouse();
 
   stage_data stage1 = {120, "test1"};
-  stage_data stage2 = {160, "test"};
+  //stage_data stage2 = {140, "test1"};
+  stage_data stage3 = {160, "test"};
 
   bitmap traversable_map = load_bitmap("Map1", "Graphics/Island.png");
   bitmap visual_map = load_bitmap("Map2", "Graphics/Under Island.png");
@@ -611,6 +624,9 @@ int main() {
   free_bitmap(splash_text);
 
   // maybe main menu after in here
+
+  position spawn_point = {2910, -630};
+  player_position = spawn_point;
 
   double elasped_time = 0;
   begin_stage(stage1);
@@ -658,14 +674,26 @@ int main() {
       set_camera_y((SCREEN_SIZE[1] - player_position.y) - SCREEN_SIZE[1] / 2 + 64 - sin(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 9 * 2) + shake(shake_amount));
     }
 
-    process_player_movement(pointing_angle);
-    process_player_dash(elasped_time, pointing_angle, bounce(elasped_time, 1, 1) > 0.5, 10, 15);
+    process_player_movement(pointing_angle, traversable_map);
+    process_player_dash(elasped_time, pointing_angle, bounce(elasped_time, 1, 1) > 0.5, 10, 17.5);
     process_player_attack(elasped_time, pointing_angle);
 
     clear_screen(rgba_color(219, 157, 225, 255));
-    draw_bitmap_with_animation(elasped_time, "Water", 0, 0, 4);
+
+    draw_bitmap_with_animation(elasped_time, "Water", 0, 0, 3);
     draw_bitmap(visual_map, 0, 0);
     draw_bitmap(traversable_map, 0, 0);
+
+    position player_point = {player_position.x + 32, SCREEN_SIZE[1] - player_position.y + 104};
+    if (!bitmap_point_collision(traversable_map, 0, 0, player_point.x, player_point.y) && player_current_action != DASH) {
+      falling_frames = falling_frames + delta_time;
+      if (falling_frames > 15) {
+        play_sound_effect("Fall");
+        falling_frames = 0;
+        player_position = last_dash_position;
+        take_damage_player(10);
+      }
+    }
 
     for (int i = 0; i < back_particles.size(); i++) {
       draw_bitmap_with_animation(elasped_time, back_particles[i].animation, back_particles[i].position.x, SCREEN_SIZE[1] - back_particles[i].position.y, 1);
@@ -676,13 +704,15 @@ int main() {
       }
     }
 
+    bitmap player;
     if (invincibility_frames > 0) {
+      invincibility_frames = invincibility_frames - 1;
       if ((int)elasped_time % 6 == 0 || (int)elasped_time % 6 == 1 || (int)elasped_time % 6 == 2) {
-        bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position.x, SCREEN_SIZE[1] - player_position.y, 6);
+        player = draw_bitmap_with_animation(elasped_time, player_animation, player_position.x, SCREEN_SIZE[1] - player_position.y, 6);
       }
     }
     else {
-      bitmap player = draw_bitmap_with_animation(elasped_time, player_animation, player_position.x, SCREEN_SIZE[1] - player_position.y, 6);
+      player = draw_bitmap_with_animation(elasped_time, player_animation, player_position.x, SCREEN_SIZE[1] - player_position.y, 6);
     }
 
     for (int i = 0; i < projectiles.size(); i++) {
@@ -699,7 +729,7 @@ int main() {
       }
     }
 
-    color hp_bar = rgba_color(255, 195, 195, 180 + (int)bounce(elasped_time, 25, 2));
+    color hp_bar = rgba_color(255, 195, 210, 180 + (int)bounce(elasped_time, 25, 2));
     fill_rectangle(hp_bar, stick_to_screen_x(25), stick_to_screen_y(25), player_health * 4.5, 32);
     draw_bitmap(health_icon, stick_to_screen_x(25), stick_to_screen_y(25));
     color power_bar = rgba_color(192, 178, 209, 180 + (int)bounce(elasped_time, 25, 2));
@@ -714,11 +744,24 @@ int main() {
       elasped_time = elasped_time + delta_time;
     }
 
+    if (player_health < 0) {
+      player_health = 0;
+    }
+    if (player_health == 0) {
+      game_running = false;
+      game_lose = true;
+    }
+
     int current_fps = (int)round(60 / delta_time);
     draw_text_on_window(main_window, to_string(current_fps), color_white(), main_font, 16, stick_to_screen_x(8), stick_to_screen_y(SCREEN_SIZE[1] - 20));
 
     refresh_screen(TARGET_FRAMERATE);
     process_events();
+  }
+
+  while (game_lose) {
+    break;
+    // lose screen
   }
 
   return 0;

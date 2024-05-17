@@ -35,3 +35,6 @@ To generate the `icon.o`:
 1. Get the `.ico` file that is to be used (usually converted from a `.png`).
 2. Create a new file called `icon.rc` and write `ICON_NAME ICON "icon.ico"` in it.
 3. Run the command `windres icon.rc -O coff -o icon.o` (or use a `.bat` file that has that command).
+
+### Recommended Specifications
+The program may use up to `2 GB` of RAM at most. With that said, a device with at least `4 GB` of RAM is recommended.
