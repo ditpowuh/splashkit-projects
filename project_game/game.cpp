@@ -106,7 +106,7 @@ bitmap separator = load_bitmap("Menu Separator", "Graphics/Menu Separator.png");
 bitmap health_icon = load_bitmap("Health Icon", "Graphics/Health Icon.png");
 bitmap power_icon = load_bitmap("Power Icon", "Graphics/Power Icon.png");
 
-string player_animation = "IdleDown";
+string player_animation = "PlayerIdleDown";
 map<string, int> animation_map;
 
 int bpm = 160;
@@ -276,7 +276,9 @@ float shake(float &shake_amount) {
 
 void begin_stage(stage_data stage) {
   bpm = stage.bpm;
-  play_music(stage.music);
+  while (!music_playing()) {
+    play_music(stage.music);
+  }
 }
 
 void prepare_stage(double &stage_display_time) {
@@ -308,11 +310,11 @@ void process_player_movement(float angle, bitmap map) {
 
   if (applied_movement[0] != 0 || applied_movement[1] != 0 || action_amount > 0)  {
     player_moving = true;
-    player_animation = "Run";
+    player_animation = "PlayerRun";
   }
   else {
     player_moving = false;
-    player_animation = "Idle";
+    player_animation = "PlayerIdle";
   }
   int action_direction = (int)round((angle_in_360(angle) + 90) / 90);
   if (action_amount > 0) {
@@ -381,7 +383,7 @@ void process_player_dash(double elasped_time, float angle, bool in_time, int dur
       last_dash_position = player_position;
       shake_amount = 25;
     }
-    string particle_animation = "Dash";
+    string particle_animation = "PlayerDash";
     switch (player_direction) {
       case UP: particle_animation = particle_animation + "Up"; break;
       case DOWN: particle_animation = particle_animation + "Down"; break;
@@ -769,6 +771,8 @@ int main() {
     if (bitmap_collision(mouse_cursor, adjusted_mouse_x(), adjusted_mouse_y(), text_button1, 580, 235)) {
       draw_bitmap(selected, 580 - 16, 235 - 16);
       if (mouse_clicked(LEFT_BUTTON)) {
+        play_sound_effect("Play");
+        shake_amount = 1000;
         stop_music();
         break;
       }
@@ -855,7 +859,7 @@ int main() {
     draw_bitmap(traversable_map, 0, 0);
 
     position player_point = {player_position.x + 32, SCREEN_SIZE[1] - player_position.y + 104};
-    if (!bitmap_point_collision(traversable_map, 0, 0, player_point.x, player_point.y) && player_current_action != DASH && !game_pause) {
+    if (!bitmap_point_collision(traversable_map, 0, 0, player_point.x, player_point.y) && player_current_action != DASH && !game_pause && !new_stage) {
       falling_frames = falling_frames + delta_time;
       if (falling_frames > 9) {
         play_sound_effect("Fall");
@@ -905,6 +909,7 @@ int main() {
 
     // TEMP: testing out changing stages
     if (key_typed(E_KEY)) {
+      shake_amount = 1000;
       new_stage = true;
       stop_music();
     }
