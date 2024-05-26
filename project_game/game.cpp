@@ -1,11 +1,13 @@
-// Using these libraries (Standard + SplashKit)
+// Using these libraries (SplashKit + Standard)
 #include "splashkit.h"
 #include <filesystem>
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+// Using different data structures from standard
+#include <unordered_map>
 #include <vector>
 #include <queue>
-#include <map>
 
 // Preprocessor macro to replace stick_to_screen_x and stick_to_screen_y with to_world_x and to_world_y - this is made for personal use as it makes it easier for me to understand
 #define stick_to_screen_x to_world_x
@@ -85,8 +87,6 @@ float dashing_angle;
 double action_amount = 0;
 float shake_amount = 0;
 
-double applied_movement[] = {0, 0};
-
 enum projectile_type {
   PLAYER,
   ENEMY
@@ -107,7 +107,7 @@ bitmap health_icon = load_bitmap("Health Icon", "Graphics/Health Icon.png");
 bitmap power_icon = load_bitmap("Power Icon", "Graphics/Power Icon.png");
 
 string player_animation = "PlayerIdleDown";
-map<string, int> animation_map;
+unordered_map<string, int> animation_map;
 
 int bpm = 160;
 
@@ -254,6 +254,16 @@ float angle_in_360(float angle) {
 
 float pythagorean_theorem(float x, float y) {
   return sqrt(pow(x, 2) + pow(y, 2));
+float calculate_distance(float x_difference, float y_difference) {
+  return sqrt(pow(x_difference, 2) + pow(y_difference, 2));
+}
+
+float calculate_distance(float x1, float y1, float x2, float y2) {
+  return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+}
+
+float calculate_distance(position position1, position position2) {
+  return sqrt(pow(position2.x - position1.x, 2) + pow(position2.y - position1.y, 2));
 }
 
 bitmap draw_bitmap_with_animation(int elasped_time, string playing_animation, double position_x, double position_y, int animation_speed = 5, int offset = 0) {
@@ -274,6 +284,89 @@ float shake(float &shake_amount) {
   return (rnd() * 2 - 1) * shake_amount;
 }
 
+// My own implementation of the A* / Astar algorithm
+vector<position> perform_modified_astar(bitmap map, position starting_point, position ending_point, double increments = 1) {
+  // Creates a new struct in the scope of this function (this is as I'm not going to use nodes anywhere else)
+  struct node {
+    position node_position;
+    double distance_from_start;
+    double distance_to_end;
+  };
+  struct compare_node {
+    bool operator()(const node& node1, const node& node2) {
+      if (node1.distance_from_start + node1.distance_to_end == node2.distance_from_start + node2.distance_to_end) {
+        return node1.distance_to_end > node2.distance_to_end;
+      }
+      return node1.distance_from_start + node1.distance_to_end > node2.distance_from_start + node2.distance_to_end;
+    }
+  };
+  priority_queue<node, vector<node>, compare_node> nodes;
+  unordered_map<string, node> predecessors;
+  node starting_node = {starting_point, 0, calculate_distance(starting_point, ending_point)};
+  nodes.push(starting_node);
+
+  // Defines the 8 directions as two arrays
+  int directions_x[] = {0, 1, 1, 1, 0, -1, -1, -1};
+  int directions_y[] = {1, 1, 0, -1, -1, -1, 0, 1};
+
+  vector<node> explored_nodes;
+  while (!nodes.empty()) {
+    node current_node = nodes.top();
+    explored_nodes.push_back(current_node);
+    nodes.pop();
+
+
+    if (!bitmap_point_collision(map, 0, 0, current_node.node_position.x, SCREEN_SIZE[1] - current_node.node_position.y)) {
+      continue;
+    }
+
+    // If the target has been approximately reached, or the calculations start to get too big...
+    if (calculate_distance(current_node.node_position, ending_point) < 0.75 * increments || nodes.size() > 500) {
+      vector<position> path;
+      while (predecessors.find(to_string(current_node.node_position.x) + " " + to_string(current_node.node_position.y)) != predecessors.end()) {
+        path.push_back(current_node.node_position);
+        current_node = predecessors[to_string(current_node.node_position.x) + " " + to_string(current_node.node_position.y)];
+      }
+      path.push_back(starting_point);
+      reverse(path.begin(), path.end());
+      return path;
+    }
+    // For each of the 8 directions...
+    for (int i = 0; i < 8; i++) {
+      position neighbouring_position;
+      if (directions_x[i] != 0 && directions_y[i] != 0) {
+        neighbouring_position = {current_node.node_position.x + (double)directions_x[i] * increments * DIAGONAL_MOVEMENT, current_node.node_position.y + (double)directions_y[i] * increments * DIAGONAL_MOVEMENT};
+      }
+      else {
+        neighbouring_position = {current_node.node_position.x + (double)directions_x[i] * increments, current_node.node_position.y + (double)directions_y[i] * increments};
+      }
+      if (!bitmap_point_collision(map, 0, 0, neighbouring_position.x, SCREEN_SIZE[1] - neighbouring_position.y)) {
+        continue;
+      }
+      // Sets a boolean to see if the neighbouring node has beenn explored yet
+      bool is_already_explored = false;
+      // For each of the explored nodes...
+      for (int j = 0; j < explored_nodes.size(); j++) {
+        // ...Check if there is a node that is close by...
+        if (calculate_distance(explored_nodes[j].node_position, neighbouring_position) < 0.75 * increments) {
+          // ...Sets the boolean to true if there is and stop since it's already known that is has been explored
+          is_already_explored = true;
+          break;
+        }
+      }
+      // If the node has not been explored...
+      if (!is_already_explored) {
+        // Create a new node with the attributes
+        node added_new_node = {neighbouring_position, calculate_distance(neighbouring_position, starting_point), calculate_distance(neighbouring_position, ending_point)};
+        // Set the new node's predecessor to the current node
+        predecessors[to_string(added_new_node.node_position.x) + " " + to_string(added_new_node.node_position.y)] = current_node;
+        nodes.push(added_new_node);
+      }
+    }
+  }
+  return vector<position>();
+}
+
 void begin_stage(stage_data stage) {
   bpm = stage.bpm;
   while (!music_playing()) {
@@ -286,8 +379,7 @@ void prepare_stage(double &stage_display_time) {
 }
 
 void process_player_movement(float angle, bitmap map) {
-  applied_movement[0] = 0;
-  applied_movement[1] = 0;
+  double applied_movement[] = {0, 0};
 
   if (!game_pause) {
     if (key_down(W_KEY)) {
@@ -839,7 +931,7 @@ int main() {
     int y_difference = stick_to_screen_y(SCREEN_SIZE[1] - adjusted_mouse_y()) - (SCREEN_SIZE[1] - player_position.y + 64);
     int x_difference = stick_to_screen_x(adjusted_mouse_x()) - (player_position.x + 32);
     float pointing_angle = atan2(y_difference, x_difference) * RADIANS_TO_DEGREES;
-    float distance_difference = pythagorean_theorem(x_difference, y_difference);
+    float distance_difference = calculate_distance(x_difference, y_difference);
 
     if (!game_pause) {
       set_camera_x(player_position.x - SCREEN_SIZE[0] / 2 + 32 + cos(pointing_angle * DEGREES_TO_RADIANS) * abs((float)distance_difference / 16 * 2) + shake(shake_amount));
@@ -904,6 +996,19 @@ int main() {
       player_power = player_power + 8;
       if (player_power > 100) {
         player_power = 100;
+      }
+    }
+
+    // TEMP: testing pathfinding
+    position player_point_traversal = {player_position.x + 32, player_position.y - 104};
+    position test1 = {spawn_point.x, spawn_point.y};
+    position test2 = {spawn_point.x + 50, spawn_point.y + 50};
+    //position test2 = {-50, -50};
+    if (bitmap_point_collision(traversable_map, 0, 0, player_point.x, player_point.y)) {
+      vector<position> path_to_spawn = perform_modified_astar(traversable_map, test1, player_point_traversal, (calculate_distance(test1, player_point_traversal) + 0.1) / 8);
+      //write_line(to_string(path_to_spawn.size()));
+      for (int i = 0; i < path_to_spawn.size(); i++) {
+        fill_circle(color_red(), path_to_spawn[i].x, SCREEN_SIZE[1] - path_to_spawn[i].y, 5);
       }
     }
 
