@@ -118,39 +118,69 @@ bool game_lose = false;
 double delta_time;
 
 class enemy {
+  protected:
+    int pattern_ID = 1;
+    bool complete_pattern = false;
+
   public:
     int hp;
-    position position;
+    position current_position;
     string animation;
     enemy(int hp, double x, double y, string animation) {
       this->hp = hp;
-      position.x = x;
-      position.y = y;
+      current_position.x = x;
+      current_position.y = y;
       this->animation = animation;
     }
 
-    void move_by_angle(float angle, float speed) {
-      position.x = position.x + cos(angle * DEGREES_TO_RADIANS) * speed * delta_time;
-      position.y = position.y + sin(angle * DEGREES_TO_RADIANS) * speed * delta_time;
+    void move(bitmap map, double applied_x, double applied_y, float speed) {
+      position point_x = {current_position.x + 32 + applied_x * 8, SCREEN_SIZE[1] - current_position.y + 104};
+      position point_y = {current_position.x + 32, SCREEN_SIZE[1] - current_position.y + 104 - applied_y * 8};
+
+      if (bitmap_point_collision(map, 0, 0, point_x.x, point_y.y)) {
+        current_position.x = current_position.x + applied_x * speed * delta_time;
+      }
+      if (bitmap_point_collision(map, 0, 0, point_x.x, point_y.y)) {
+        current_position.y = current_position.y + applied_y * speed * delta_time;
+      }
     }
 
-    void move_by_value(double movement_x, double movement_y, float speed) {
-      position.x = position.x + speed * delta_time;
-      position.y = position.y + speed * delta_time;
+    void move(bitmap map, float angle, float speed) {
+      position point_x = {current_position.x + 32 + cos(angle * DEGREES_TO_RADIANS) * 8, SCREEN_SIZE[1] - current_position.y + 104};
+      position point_y = {current_position.x + 32, SCREEN_SIZE[1] - current_position.y + 104 - sin(angle * DEGREES_TO_RADIANS) * 8};
+
+      if (bitmap_point_collision(map, 0, 0, point_x.x, point_y.y)) {
+        current_position.x = current_position.x + cos(angle * DEGREES_TO_RADIANS) * speed * delta_time;
+      }
+      if (bitmap_point_collision(map, 0, 0, point_x.x, point_y.y)) {
+        current_position.y = current_position.y + sin(angle * DEGREES_TO_RADIANS) * speed * delta_time;
+      }
     }
 
-    void avoid_falling(bitmap map) {
-      // position point_x = {player_position.x + 32 + applied_movement[0] * 8, SCREEN_SIZE[1] - player_position.y + 104};
-      // position point_y = {player_position.x + 32, SCREEN_SIZE[1] - player_position.y + 104 - applied_movement[1] * 8};
-      //
-      // if (bitmap_point_collision(map, 0, 0, point_x.x, point_y.y)) {
-      //   position.x = position.x + player_speed * applied_movement[0] * delta_time;
-      // }
-      // if (bitmap_point_collision(map, 0, 0, point_x.x, point_y.y)) {
-      //   position.y = position.y + player_speed * applied_movement[1] * delta_time;
-      // }
+};
+
+class wraith : public enemy {
+  private:
+    static const int patterns = 2;
+
+  public:
+    void next_pattern() {
+      pattern_ID = pattern_ID + 1;
+      if (pattern_ID > patterns) {
+        pattern_ID = 1;
+      }
     }
 
+    void pattern() {
+      if (complete_pattern == true) {
+        next_pattern();
+        complete_pattern = false;
+      }
+    }
+
+    void attack() {
+      // play attack animation
+    }
 };
 
 class hoppers : public enemy {
@@ -252,8 +282,6 @@ float angle_in_360(float angle) {
   return 360 - new_angle;
 }
 
-float pythagorean_theorem(float x, float y) {
-  return sqrt(pow(x, 2) + pow(y, 2));
 float calculate_distance(float x_difference, float y_difference) {
   return sqrt(pow(x_difference, 2) + pow(y_difference, 2));
 }
