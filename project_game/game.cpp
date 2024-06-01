@@ -1011,8 +1011,6 @@ int main() {
   if (settings.music_volume == 0) {
     write_line("Warning: Music is essential part of the game and without it, may hinder your experience.");
   }
-  // Sets the volume of the music
-  set_music_volume(settings.music_volume);
 
   // Writes to the console what is happening
   write_line("Setting up Alterheart...");
