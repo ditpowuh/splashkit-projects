@@ -1,7 +1,7 @@
 # Alterheart (project_game)
 ### Controls/Instructions
 #### General
-Eliminate all enemies in the location before dying or before the music finishes playing. Dashing can only be done in sync to the beat of the song.
+Eliminate all enemies in the stage before dying or before the music finishes playing. Dashing can only be done in sync to the beat of the song.
 <br>
 Shooting and casting can be done without being in beat, but the energy/power of the player recharges in sync to the beat.
 #### Input controls
@@ -31,8 +31,14 @@ A display, at minimum of `1280x720 pixels`, should be used. Fullscreen cannot be
 <br>
 The program may use up to `2 GB` of RAM at most. With that said, a device with at least `4 GB` of RAM is recommended.
 ### Additional Information
+#### Different compile options
 For compiling, any C++ standard **above** C++14 can be used - thus, the following arguments can be used:
-<br>`-std=c++17` `-std=c++20` `-std=c++23`
+<br>`-std=c++17` `-std=c++20` `-std=c++23`<br>
+(Only C++17 has been tested)
+#### Attribution
+All graphics, music and sounds were made by me. The graphics/sprites were made using the software `Aseprite`. The music and sounds were made using the digital audio workstation `FL Studio`.<br>
+The only asset that was **not** made by me was the font that was used in the game.
+The font was free, under the `Creative Commons Zero v1.0 Universal` license. This can be sourced from [here](https://caffinate.itch.io/fibberish).
 
 The file `icon.o` can also be left out in compiling, but will result in no icon for the application.
 ### `icon.o` generation (Windows)
