@@ -11,12 +11,16 @@
 #include <vector>
 #include <queue>
 
-// Preprocessor macro to replace stick_to_screen_x and stick_to_screen_y with to_world_x and to_world_y - this is made for personal use as it makes it easier for me to understand
+// Preprocessor macro to replace stick_to_screen_x and stick_to_screen_y with to_world_x and to_world_y - this is for easier understanding
 #define stick_to_screen_x to_world_x
 #define stick_to_screen_y to_world_y
 
-// This is so that I don't have to use the scope resolution operator (::) everytime I use something from the std namespace
-using namespace std;
+// Using strings
+using std::string;
+
+// This is to improve readability for the filesystem and chrono
+namespace filesystem = std::filesystem;
+namespace chrono = std::chrono;
 
 // Sets important constants for the game
 const int SCREEN_SIZE[] = {1280, 720};
@@ -125,7 +129,7 @@ bitmap power_icon = load_bitmap("Power Icon", "Graphics/Power Icon.png");
 // Create a string for the player's animation
 string player_animation = "PlayerIdleDown";
 // Creates an unordered map to map the length of each animation
-unordered_map<string, int> animation_map;
+std::unordered_map<string, int> animation_map;
 
 // Creates an integer to represent the BPM
 int bpm = 100;
@@ -317,13 +321,13 @@ class particle {
 };
 
 // Creates a vector of unique pointers for enemies
-vector<unique_ptr<enemy>> enemies;
+std::vector<std::unique_ptr<enemy>> enemies;
 // Creates a vector of projectiles
-vector<projectile> projectiles;
+std::vector<projectile> projectiles;
 
 // Creates vectors of particles to display at the front or back
-vector<particle> front_particles;
-vector<particle> back_particles;
+std::vector<particle> front_particles;
+std::vector<particle> back_particles;
 
 // Adjusts the mouse x position (for fullscreen)
 float adjusted_mouse_x() {
@@ -383,14 +387,14 @@ bitmap draw_bitmap_with_animation(int elasped_time, string playing_animation, do
     current_frame = current_frame - animation_map[playing_animation] * ((elasped_time + offset) / (animation_speed * animation_map[playing_animation]));
   }
   // Draws the bitmap using the associated string
-  draw_bitmap(playing_animation + to_string(current_frame), position_x, position_y);
+  draw_bitmap(playing_animation + std::to_string(current_frame), position_x, position_y);
   // Returns the bitmap that is being displayed
-  return bitmap_named(playing_animation + to_string(current_frame));
+  return bitmap_named(playing_animation + std::to_string(current_frame));
 }
 
 // Returns a float after performing mathematics to make a bounce effect based on the BPM
 float bounce(double sin_value, float strength, int sharpness = 500) {
-  return abs(pow(sin(PI * sin_value / (60 / (float)bpm * TARGET_FRAMERATE) + PI / 2), sharpness) * strength);
+  return std::abs(std::pow(std::sin(PI * sin_value / (60 / (float)bpm * TARGET_FRAMERATE) + PI / 2), sharpness) * strength);
 }
 
 // Changes the shake amount and returns a random value to move the camera by
@@ -402,7 +406,7 @@ float shake(float &shake_amount) {
 }
 
 // My own implementation of the A* / Astar algorithm
-vector<position> perform_modified_astar(bitmap map, position starting_point, position ending_point, double increments = 1) {
+std::vector<position> perform_modified_astar(bitmap map, position starting_point, position ending_point, double increments = 1) {
   // Creates a new struct in the scope of this function (this is as I'm not going to use nodes anywhere else)
   struct node {
     position node_position;
@@ -419,9 +423,9 @@ vector<position> perform_modified_astar(bitmap map, position starting_point, pos
     }
   };
   // Creates a priority queue of nodes, setting the container as a vector of nodes and the comparison to compare_node
-  priority_queue<node, vector<node>, compare_node> nodes;
+  std::priority_queue<node, vector<node>, compare_node> nodes;
   // Creates a map that has a string as the key and a node as the value
-  unordered_map<string, node> predecessors;
+  std::unordered_map<string, node> predecessors;
   node starting_node = {starting_point, 0, calculate_distance(starting_point, ending_point)};
   nodes.push(starting_node);
 
@@ -430,7 +434,7 @@ vector<position> perform_modified_astar(bitmap map, position starting_point, pos
   int directions_y[] = {1, 1, 0, -1, -1, -1, 0, 1};
 
   // Creates a vector for the explored nodes
-  vector<node> explored_nodes;
+  std::vector<node> explored_nodes;
   // While the priority queue of nodes is not empty, this will run
   while (!nodes.empty()) {
     // Gets the node with the smallest combined distance
@@ -448,13 +452,13 @@ vector<position> perform_modified_astar(bitmap map, position starting_point, pos
     // If the target has been approximately reached, or the calculations start to get too big...
     if (calculate_distance(current_node.node_position, ending_point) < 0.75 * increments || nodes.size() > 500) {
       // Create a new vector that shows the final path
-      vector<position> path;
+      std::vector<position> path;
       // While there is a predecessor for the current...
-      while (predecessors.find(to_string(current_node.node_position.x) + " " + to_string(current_node.node_position.y)) != predecessors.end()) {
+      while (predecessors.find(std::to_string(current_node.node_position.x) + " " + std::to_string(current_node.node_position.y)) != predecessors.end()) {
         // ...add the current node's position to the path
         path.push_back(current_node.node_position);
         // Set the current node to the predecessor of it
-        current_node = predecessors[to_string(current_node.node_position.x) + " " + to_string(current_node.node_position.y)];
+        current_node = predecessors[std::to_string(current_node.node_position.x) + " " + std::to_string(current_node.node_position.y)];
       }
       // Adds the starting position to the end of the path
       path.push_back(starting_point);
@@ -496,13 +500,13 @@ vector<position> perform_modified_astar(bitmap map, position starting_point, pos
         // Create a new node with the attributes
         node added_new_node = {neighbouring_position, calculate_distance(neighbouring_position, starting_point), calculate_distance(neighbouring_position, ending_point)};
         // Set the new node's predecessor to the current node using the position (as a string) for the key
-        predecessors[to_string(added_new_node.node_position.x) + " " + to_string(added_new_node.node_position.y)] = current_node;
+        predecessors[std::to_string(added_new_node.node_position.x) + " " + std::to_string(added_new_node.node_position.y)] = current_node;
         // Adds the new node to the priority queue
         nodes.push(added_new_node);
       }
     }
   }
-  return vector<position>{starting_point};
+  return std::vector<position>{starting_point};
 }
 
 // Begins thew new stage by changing the BPM and starting the music
@@ -673,7 +677,7 @@ void process_player_attack(int elasped_time, float angle, bitmap map) {
     back_particles.push_back(melee_particle);
     play_sound_effect("Sigil", settings.sound_volume);
     position player_point = {player_position.x + 32, SCREEN_SIZE[1] - player_position.y + 104};
-    for (int i = 0; i < enemies.size(); i++) {
+    for (int i = 0; i < (int)enemies.size(); i++) {
       if (calculate_distance((SCREEN_SIZE[1] - enemies[i]->current_position.y) - player_point.y, enemies[i]->current_position.x  - player_point.x) < 128) {
         for (int j = 0; j < 3; j++) {
           particle hit_particle("Hit", enemies[i]->current_position.x, enemies[i]->current_position.y, 13);
@@ -989,7 +993,7 @@ int main() {
   else {
     write_line("No settings stored. Generating JSON file for settings...");
     // Create a new output file stream
-    ofstream file("JSON/settings.json");
+    std::ofstream file("JSON/settings.json");
     // If the file is opened correctly...
     if (file.is_open()) {
       // ...The file will close as the file only needs to be created
@@ -1020,7 +1024,7 @@ int main() {
   hide_mouse();
 
   // Creates a queue for the stages
-  queue<stage_data> stages;
+  std::queue<stage_data> stages;
   // Enqueues the different stages
   stages.push({120, "Alterheart OST 02 - Heartbeat Horizon", "Stage 1", 25});
   stages.push({140, "Alterheart OST 03 - Pulsing Pursuit", "Stage 2", 30});
@@ -1141,7 +1145,7 @@ int main() {
   // Creates a counter to count how enemies that have been killed
   int enemies_killed = 0;
   // Creates a vector to cache different valid positions for non-floating enemies
-  vector<position> on_map_positions;
+  std::vector<position> on_map_positions;
   // While the vector of positions is less than 20
   while (on_map_positions.size() < 20) {
     // Get a random position that is on the length of the water
@@ -1165,7 +1169,7 @@ int main() {
   prepare_stage(preparing_stage);
 
   // Create a pointer for the current boss
-  unique_ptr<boss> current_boss;
+  std::unique_ptr<boss> current_boss;
   float spawn_rate = 300;
   float spawn_enemy = 0;
 
@@ -1257,13 +1261,13 @@ int main() {
           switch (rnd(1, 4)) {
             case 1:
               random_position = on_map_positions[rnd(0, on_map_positions.size())];
-              enemies.push_back(make_unique<wraith>(random_position.x, random_position.y));
+              enemies.push_back(std::make_unique<wraith>(random_position.x, random_position.y));
               break;
             case 2:
-              enemies.push_back(make_unique<mage>(random_position.x, random_position.y, rnd(1, 3)));
+              enemies.push_back(std::make_unique<mage>(random_position.x, random_position.y, rnd(1, 3)));
               break;
             case 3:
-              enemies.push_back(make_unique<drone>(random_position.x, random_position.y));
+              enemies.push_back(std::make_unique<drone>(random_position.x, random_position.y));
               break;
           }
         }
@@ -1293,7 +1297,7 @@ int main() {
     }
 
     // For each of the enemies...
-    for (int i = 0; i < enemies.size(); i++) {
+    for (int i = 0; i < (int)enemies.size(); i++) {
       // Get the player point that will be used to traversal
       position player_point_traversal = {player_position.x + 32, player_position.y - 104};
       // If the enemy's HP is 0...
@@ -1322,7 +1326,7 @@ int main() {
           if (wraith_ptr->pattern() == 1) {
             enemies[i]->animation = "WraithRun";
             if (bitmap_point_collision(traversable_map, 0, 0, player_point.x, player_point.y)) {
-              vector<position> path = perform_modified_astar(traversable_map, enemies[i]->current_position, player_point_traversal, 32);
+              std::vector<position> path = perform_modified_astar(traversable_map, enemies[i]->current_position, player_point_traversal, 32);
               path.erase(path.begin());
               float enemy_angle = 180 - get_angle(SCREEN_SIZE[1] - enemies[i]->current_position.y - (SCREEN_SIZE[1] - path[0].y), enemies[i]->current_position.x - path[0].x);
               enemies[i]->move(traversable_map, enemy_angle);
@@ -1406,7 +1410,7 @@ int main() {
     }
 
     // For each of the projectiles...
-    for (int i = 0; i < projectiles.size(); i++) {
+    for (int i = 0; i < (int)projectiles.size(); i++) {
       // ...Draw the projectile
       draw_bitmap_with_animation(elasped_time, projectiles[i].animation, projectiles[i].position.x, SCREEN_SIZE[1] - projectiles[i].position.y, projectiles[i].animation_speed, projectiles[i].offset());
       // If the game is not paused....
@@ -1421,7 +1425,7 @@ int main() {
     }
 
     // For each of the projectiles and projectiles...
-    for (int i = 0; i < enemies.size(); i++) {
+    for (int i = 0; i < (int)enemies.size(); i++) {
       for (int j = 0; j < projectiles.size(); j++) {
         // If the projectile is a player projectile and it is within range of an enemy...
         if (projectiles[j].type == PLAYER && calculate_distance((SCREEN_SIZE[1] - (projectiles[j].position.y - 32)) - (SCREEN_SIZE[1] - enemies[i]->current_position.y), (projectiles[j].position.x + 32) - enemies[i]->current_position.x) < 96) {
@@ -1443,7 +1447,7 @@ int main() {
       }
     }
 
-    for (int i = 0; i < front_particles.size(); i++) {
+    for (int i = 0; i < (int)front_particles.size(); i++) {
       draw_bitmap_with_animation(elasped_time, front_particles[i].animation, front_particles[i].position.x, SCREEN_SIZE[1] - front_particles[i].position.y, 1);
       if (!game_pause) {
         if (front_particles[i].finished()) {
@@ -1497,7 +1501,7 @@ int main() {
 
     if (new_stage && !game_pause) {
       // If there are no more stages to load, end the game
-      if (stages.size() == 0) {
+      if ((int)stages.size() == 0) {
         game_running = false;
         return 0;
       }
@@ -1524,7 +1528,7 @@ int main() {
         NOTE: This is where the boss would be spawned but as of submission, there was not enough time
         if (current_stage.boss != "") {
           if (current_stage.boss == "Fear") {
-            current_boss = make_unique<fear>(spawn_point.x, spawn_point.y);
+            current_boss = std::make_unique<fear>(spawn_point.x, spawn_point.y);
           }
         }
         */
@@ -1569,7 +1573,7 @@ int main() {
     // Gets the current FPS as a integer
     int current_fps = (int)round(60 / delta_time);
     // Draws it as text on in the bottom left of the screen
-    draw_text_on_window(main_window, to_string(current_fps), color_white(), main_font, 16, stick_to_screen_x(8), stick_to_screen_y(SCREEN_SIZE[1] - 20));
+    draw_text_on_window(main_window, std::to_string(current_fps), color_white(), main_font, 16, stick_to_screen_x(8), stick_to_screen_y(SCREEN_SIZE[1] - 20));
 
     // Refreshes the screen using the target framerate and processes the event
     refresh_screen(TARGET_FRAMERATE);
