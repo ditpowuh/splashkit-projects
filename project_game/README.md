@@ -18,11 +18,13 @@ Shooting and casting can be done without being in beat, but the energy/power of 
 `ESC` - Pause/Unpause (In game)/Skip (Before game start)<br>
 `F11` - Fullscreen shortcut (Only when game is paused or before game starts, if available)<br>
 ### Quick compile commands (with settings)
-#### g++ (Regular)
+#### Regular - g++
+Default method
 ```
-g++ -std=c++17 icon.o game.cpp -o Alterheart.exe
+g++ -std=c++17 icon.o -I SplashKit/include -L SplashKit/lib -l SplashKit game.cpp -o Alterheart.exe
 ```
-#### g++ (SKM)
+#### SKM - g++
+With SplashKit Manager installed
 ```
 skm g++ -std=c++17 icon.o game.cpp -o Alterheart.exe
 ```
@@ -35,6 +37,8 @@ The program may use up to `2 GB` of RAM at most. With that said, a device with a
 For compiling, any C++ standard **above** C++14 can be used - thus, the following arguments can be used:
 <br>`-std=c++17` `-std=c++20` `-std=c++23`<br>
 (Only C++17 has been tested)
+#### Operating System
+Only `Windows` has been tested and is likely the only operating system that is supported.
 #### Attribution
 All graphics, music and sounds were made by me. The graphics/sprites were made using the software `Aseprite`. The music and sounds were made using the digital audio workstation `FL Studio`.<br>
 The only asset that was **not** made by me was the font that was used in the game.
