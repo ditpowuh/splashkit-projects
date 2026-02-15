@@ -23,11 +23,7 @@ Shooting and casting can be done without being in beat, but the energy/power of 
 `ESC` - Pause/Unpause (In game)/Skip (Before game start)<br>
 `F11` - Fullscreen shortcut (Only when game is paused or before game starts, if available)<br>
 ### Quick compile commands (with settings)
-#### Regular - g++
-Default method
-```
-g++ -std=c++17 icon.o -I SplashKit/include -L SplashKit/lib -l SplashKit game.cpp -o Alterheart.exe
-```
+> Please install [SplashKit](https://splashkit.io/).
 #### SKM - g++
 With SplashKit Manager installed
 ```
